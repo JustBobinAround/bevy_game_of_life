@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use board::*;
-use cell::*;
 use cell_renderer::*;
 
 mod cell_renderer;

@@ -63,7 +63,7 @@ impl Board {
         let mut grid: Vec<Vec<Cell>>  = Vec::new(); // Theres gotta be a more functional way of populating this
         for _i in 0..columns { 
             let mut column: Vec<Cell> = Vec::new();
-            for j in 0..rows {
+            for _j in 0..rows {
                 column.push(Cell { cell_type: CellType::Empty });
             }
             grid.push(column);
@@ -140,7 +140,7 @@ impl Board {
     fn print_board (&self) {
         for column in 0..self.num_columns {
             for row in 0..self.num_rows {
-                let mut type_to_print;
+                let type_to_print;
                 match self.grid[column][row].cell_type {
                     CellType::Empty => type_to_print = "E",
                     CellType::Sand => type_to_print = "S",
@@ -174,7 +174,7 @@ fn update_board(
 }
 
 fn handle_click (
-    mut board: ResMut<Board>,
+    board: ResMut<Board>,
     buttons: Res<Input<MouseButton>>,
     brush: Res<Brush>,
     window: Query<&Window>
