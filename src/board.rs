@@ -7,17 +7,21 @@ pub const CELL_SIZE: f32 = 16.0;
 
 #[derive(Resource)]
 struct TickTimer(Timer);
-// if cell never gets used in main's context, it may be worth declaring mod cell here maybe?
+
+#[derive(Resource)]
+struct Brush(CellType);
 
 pub struct BoardPlugin;
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app
         .insert_resource(Board::new(Vec2::from((BOARD_WIDTH, BOARD_HEIGHT))))
-        .insert_resource(TickTimer(Timer::from_seconds(0.05, TimerMode::Repeating)))
+        .insert_resource(TickTimer(Timer::from_seconds(0.03, TimerMode::Repeating)))
+        .insert_resource(Brush(CellType::Sand))
         .add_startup_system(setup)
         .add_system(update_board)
-        .add_system(handle_click);
+        .add_system(handle_click)
+        .add_system(handle_keys);
     }
 }
 
@@ -60,11 +64,7 @@ impl Board {
         for _i in 0..columns { 
             let mut column: Vec<Cell> = Vec::new();
             for j in 0..rows {
-                if j % 2 == 0 {
-                    column.push(Cell { cell_type: CellType::Empty });
-                } else {
-                    column.push(Cell { cell_type: CellType::Sand })
-                }
+                column.push(Cell { cell_type: CellType::Empty });
             }
             grid.push(column);
         }
@@ -144,7 +144,8 @@ impl Board {
                 match self.grid[column][row].cell_type {
                     CellType::Empty => type_to_print = "E",
                     CellType::Sand => type_to_print = "S",
-                    CellType::Water => type_to_print = "W"
+                    CellType::Water => type_to_print = "W",
+                    CellType::Solid => type_to_print = "O"
                 }
 
                 print!("{type_to_print}    ");
@@ -153,7 +154,7 @@ impl Board {
         }
     }
 
-    fn get_color_at_coordinates(&self, column: usize, row: usize) -> Color {
+    pub fn get_color_at_coordinates(&self, column: usize, row: usize) -> Color {
         self.grid[column][row].get_color()
     }
 
@@ -169,31 +170,74 @@ fn update_board(
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
-    println!("BEFORE ACTIONS");
-    board.print_board();
-
     board.perform_cell_actions();
-
-    println!("AFTER ACTIONS");
-    board.print_board();
 }
 
 fn handle_click (
     mut board: ResMut<Board>,
     buttons: Res<Input<MouseButton>>,
+    brush: Res<Brush>,
     window: Query<&Window>
 ) {
     if buttons.pressed(MouseButton::Left) {
         let window = window.single();
 
         if let Some(position) = window.cursor_position() {
-            let column = board.num_columns / 2;
-            let row = board.num_rows - 1;
-            board.grid[column][row].cell_type = CellType::Sand;
+            spawn_cell_from_pos(brush.0, position, board)
         } else {
-            // cursor is not inside the window
+            
         }
     }
+
+    else if buttons.pressed(MouseButton::Right) {
+        let window = window.single();
+
+        if let Some(position) = window.cursor_position() {
+            spawn_cell_from_pos(CellType::Empty, position, board)
+        } else {
+            
+        }
+    }
+}
+
+fn handle_keys (
+    keys: Res<Input<KeyCode>>,
+    mut brush: ResMut<Brush>
+) {
+    if keys.just_pressed(KeyCode::Space) {
+       let next_brush: CellType;
+       match brush.0 {
+        CellType::Sand => next_brush = CellType::Water,
+        CellType::Water => next_brush = CellType::Solid,
+        CellType::Solid => next_brush = CellType::Sand,
+        _ => next_brush = CellType::Sand
+       }
+       brush.0 = next_brush;
+    }
+}
+
+fn spawn_cell_from_pos(
+    cell_type: CellType,
+    position: Vec2,
+    mut board: ResMut<Board>
+) {
+    let x_pos;
+    let y_pos;
+    if position.x.floor() % CELL_SIZE < CELL_SIZE / 2.0 {
+        x_pos = position.x.floor() - (position.x.floor() % CELL_SIZE) - 128.0;
+    } else {
+        x_pos = position.x.floor() + (CELL_SIZE - position.x.floor() % CELL_SIZE) - 128.0;
+    }
+
+    if position.y.floor() % CELL_SIZE < CELL_SIZE / 2.0 {
+        y_pos = position.y.floor() - position.y.floor() % CELL_SIZE - 128.0;
+    } else {
+        y_pos = position.y.floor() + (CELL_SIZE - position.y.floor() % CELL_SIZE) - 128.0;
+    }
+    let num_columns = board.num_columns as f32;
+    let num_rows = board.num_rows as f32;
+
+    board.grid[(x_pos / CELL_SIZE % num_columns) as usize][(y_pos / CELL_SIZE % num_rows) as usize].cell_type = cell_type;
 }
 
 fn setup (

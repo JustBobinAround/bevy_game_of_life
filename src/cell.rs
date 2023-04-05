@@ -16,7 +16,8 @@ pub enum MoveDirection {
 pub enum CellType {
     Sand,
     Water,
-    Empty
+    Empty,
+    Solid
 }
 
 #[derive(Copy, Clone)]
@@ -29,9 +30,10 @@ pub struct Cell {
 impl Cell {
     pub fn get_color(&self) -> Color {
         match self.cell_type {
-            CellType::Sand => Color::rgb(0.35, 0.32, 0.25),
+            CellType::Sand => Color::rgb(0.45, 0.42, 0.35),
             CellType::Water => Color::rgb(0.0, 0.5, 0.90), // may need adjustment
-            CellType::Empty => Color::rgba(0.0, 0.0, 0.0, 0.0)
+            CellType::Empty => Color::rgba(0.0, 0.0, 0.0, 0.0),
+            CellType::Solid => Color::rgb(0.0, 0.6, 0.0),
         }
     }
 
@@ -52,7 +54,8 @@ impl Cell {
 
                 vec![primary, secondary, tertiary]
             },
-            CellType::Empty => vec![vec![]]
+            CellType::Empty => vec![vec![]],
+            CellType::Solid => vec![vec![]]
         }
     }
 }

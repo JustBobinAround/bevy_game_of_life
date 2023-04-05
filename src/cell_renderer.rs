@@ -48,12 +48,10 @@ fn initialize_cells(
 }
 
 fn update_cells (
-    mut commands: Commands,
     mut all_rendered_cells: Query<(&CellPosition, &mut Sprite), With<RenderedCell>>,
     board: Res<Board>
 ) {
     for (cell_pos, mut sprite) in all_rendered_cells.iter_mut() {
-        let cell = board.legal_cell_at(cell_pos.column, cell_pos.row).unwrap();
-        sprite.color = cell.get_color();
+        sprite.color = board.get_color_at_coordinates(cell_pos.column, cell_pos.row);
     }
 }
