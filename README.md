@@ -65,9 +65,9 @@ cargo run --release
 
 ## Controls
 - Scroll: Vertical camera movement.
-- Left Shift + Scroll: Horizontal camera adjustment.
+- Left Shift + Scroll: Horizontal camera Movement.
 - Escape: Erase all living cells.
-- Left Click: Generate a cell.
+- Left Click: Spawn a cell.
 - Right Click: Remove a cell.
 - Space: Toggle Pause / Play.
 
