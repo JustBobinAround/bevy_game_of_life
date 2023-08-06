@@ -1,5 +1,28 @@
-use bevy::prelude::*;
-use crate::cell::*;
+use bevy::{prelude::*, input::mouse::MouseWheel};
+use rayon::iter::{
+    IntoParallelRefIterator,
+    ParallelIterator
+};
+use std::{collections::BTreeSet, sync::{Arc, Mutex}};
+type RefHashSet = Arc<Mutex<BTreeSet<u64>>>;
+
+macro_rules! lock_as_mut {
+    (|$var:ident | $custom_code: block) => {
+        let $var = $var.clone();
+        if let Ok(mut $var) = $var.lock(){
+            $custom_code
+        };
+    };
+}
+
+macro_rules! lock_readonly {
+    (|$var:ident | $custom_code: block) => {
+        if let Ok($var) = $var.lock(){
+            $custom_code
+        };
+    };
+}
+
 
 pub const BOARD_WIDTH: f32 =  1024.0;
 pub const BOARD_HEIGHT: f32 = 512.0;
@@ -9,7 +32,7 @@ pub const CELL_SIZE: f32 = 16.0;
 struct TickTimer(Timer);
 
 #[derive(Resource)]
-struct Brush(CellType);
+struct Paused(bool);
 
 pub struct BoardPlugin;
 impl Plugin for BoardPlugin {
@@ -17,7 +40,7 @@ impl Plugin for BoardPlugin {
         app
         .insert_resource(Board::new(Vec2::from((BOARD_WIDTH, BOARD_HEIGHT))))
         .insert_resource(TickTimer(Timer::from_seconds(0.03, TimerMode::Repeating)))
-        .insert_resource(Brush(CellType::Sand))
+        .insert_resource(Paused(false))
         .add_startup_system(setup)
         .add_system(update_board)
         .add_system(handle_click)
@@ -27,10 +50,14 @@ impl Plugin for BoardPlugin {
 
 #[derive(Resource)]
 pub struct Board { 
-    grid: Vec<Vec<Cell>>,
+    cells: BTreeSet<u64>,
     board_size: Vec2, // may need to be un-public at some point
     num_rows: usize,
-    num_columns: usize
+    num_columns: usize,
+    pause: bool,
+    scroll_x: i32,
+    scroll_y: i32,
+    shift_down: bool,
 }
 
 impl Board {
@@ -40,10 +67,14 @@ impl Board {
         let rows = (size.y / CELL_SIZE) as usize;
 
         Board {
-            grid: Board::create_default_grid(columns, rows),
+            cells: BTreeSet::new(),
             board_size: size,
             num_columns: columns,
             num_rows: rows,
+            pause: true,
+            scroll_x: 10000,
+            scroll_y: 10000,
+            shift_down: false,
         }
     }
 
@@ -59,106 +90,22 @@ impl Board {
         }
     }
 
-    fn create_default_grid(columns: usize, rows: usize) -> Vec<Vec<Cell>> {
-        let mut grid: Vec<Vec<Cell>>  = Vec::new(); // Theres gotta be a more functional way of populating this
-        for _i in 0..columns { 
-            let mut column: Vec<Cell> = Vec::new();
-            for _j in 0..rows {
-                column.push(Cell { cell_type: CellType::Empty });
-            }
-            grid.push(column);
-        }
-
-        return grid;
-    }
-
     fn perform_cell_actions(&mut self) {
-        for column in 0.. self.num_columns { 
-            for row in 0..self.num_rows {
-                let cell_to_move;
-                if let CellType::Empty = self.grid[column][row].cell_type {
-                    continue;
-                } else {
-                    cell_to_move = self.grid[column][row]
-                }
-                if let Some((dest_column, dest_row)) = self.check_for_empty_adjacent_space(cell_to_move, column, row) {
-                    self.grid[dest_column][dest_row].cell_type = self.grid[column][row].cell_type;
-                    self.grid[column][row].cell_type = CellType::Empty;
-                        
-                }
-            }
-        }
-    }
-
-    fn check_for_empty_adjacent_space(&self, cell: Cell, column:usize, row:usize) -> Option<(usize, usize)> {
-        for direction_preference_category in cell.get_move_direction_preference() {
-            for direction_preference in direction_preference_category {
-                let column = column as i32;
-                let row = row as i32;
-                let cell_to_check;
-                let column_modifier; 
-                let row_modifier;
-    
-                match direction_preference {
-                    MoveDirection::Up => { (column_modifier, row_modifier) = (column, row + 1)},
-                    MoveDirection::UpRight => { (column_modifier, row_modifier) = (column + 1, row + 1) },
-                    MoveDirection::Right => { (column_modifier, row_modifier) = (column + 1, row) },
-                    MoveDirection::DownRight => { (column_modifier, row_modifier) = (column + 1, row - 1) },
-                    MoveDirection::Down => { (column_modifier, row_modifier) = (column, row - 1) },
-                    MoveDirection::DownLeft => { (column_modifier, row_modifier) = (column - 1, row - 1) },
-                    MoveDirection::Left => { (column_modifier, row_modifier) = (column - 1, row) },
-                    MoveDirection::UpLeft => { (column_modifier, row_modifier) = (column - 1, row + 1) }
-                }
-    
-                if column_modifier < 0 || row_modifier < 0 { 
-                    continue;
-                }
-    
-                let column_modifier = column_modifier as usize;
-                let row_modifier = row_modifier as usize;
-    
-                cell_to_check = self.legal_cell_at(column_modifier, row_modifier);
-                if let Some(cell) = cell_to_check {
-                    if let CellType::Empty = cell.cell_type {
-                        return Some((column_modifier, row_modifier));
-                    }
-                }
-            }
-        }
-        return None;
-    }
-
-    pub fn legal_cell_at(&self, column: usize, row: usize) -> Option<&Cell> {
-        let column_vec = self.grid.get(column);
-        if let Some(vec) = column_vec {
-            vec.get(row)
-        } else {
-            None
-        }
-    }
-
-    fn print_board (&self) {
-        for column in 0..self.num_columns {
-            for row in 0..self.num_rows {
-                let type_to_print;
-                match self.grid[column][row].cell_type {
-                    CellType::Empty => type_to_print = "E",
-                    CellType::Sand => type_to_print = "S",
-                    CellType::Water => type_to_print = "W",
-                    CellType::Solid => type_to_print = "O"
-                }
-
-                print!("{type_to_print}    ");
-            }
-            print!("\n");
+        if !self.pause {
+            self.cells = find_living(&mut self.cells);
         }
     }
 
     pub fn get_color_at_coordinates(&self, column: usize, row: usize) -> Color {
-        self.grid[column][row].get_color()
+        let column = (column as i32) + self.scroll_x;
+        let row = (row as i32) + self.scroll_y;
+        let coord = encode_coord(column, row);
+        if self.cells.contains(&coord) {
+            Color::rgb(0.4, 0.4, 0.4)
+        }else{
+            Color::rgb(0.0, 0.0, 0.0)
+        }
     }
-
-
 
 }
 
@@ -176,68 +123,213 @@ fn update_board(
 fn handle_click (
     board: ResMut<Board>,
     buttons: Res<Input<MouseButton>>,
-    brush: Res<Brush>,
     window: Query<&Window>
 ) {
-    if buttons.pressed(MouseButton::Left) {
-        let window = window.single();
+    let window = window.single();
 
-        if let Some(position) = window.cursor_position() {
-            spawn_cell_from_pos(brush.0, position, board)
-        } else {
-            
-        }
-    }
+    // This is for large displays
+    let x_offset = (window.width() - BOARD_WIDTH)/2.0;
+    let y_offset = (window.height() - BOARD_HEIGHT)/2.0;
 
-    else if buttons.pressed(MouseButton::Right) {
-        let window = window.single();
-
-        if let Some(position) = window.cursor_position() {
-            spawn_cell_from_pos(CellType::Empty, position, board)
-        } else {
-            
+    if let Some(mut pos) = window.cursor_position() {
+        pos.x -= x_offset;
+        pos.y -= y_offset;
+        if buttons.pressed(MouseButton::Left) {
+            spawn_cell_at_pos(pos, board)
+        } else if buttons.pressed(MouseButton::Right) {
+            kill_cell_at_pos(pos, board)
         }
     }
 }
 
 fn handle_keys (
+    mut board: ResMut<Board>,
     keys: Res<Input<KeyCode>>,
-    mut brush: ResMut<Brush>
+    mut scroll_evr: EventReader<MouseWheel>,
 ) {
+    if keys.just_released(KeyCode::LShift){
+        board.shift_down = false;
+    }
+    if keys.just_pressed(KeyCode::LShift) {
+        board.shift_down = true;
+    }
     if keys.just_pressed(KeyCode::Space) {
-       let next_brush: CellType;
-       match brush.0 {
-        CellType::Sand => next_brush = CellType::Water,
-        CellType::Water => next_brush = CellType::Solid,
-        CellType::Solid => next_brush = CellType::Sand,
-        _ => next_brush = CellType::Sand
-       }
-       brush.0 = next_brush;
+        board.pause = !board.pause;
+    }
+    if keys.just_pressed(KeyCode::Escape) {
+        board.cells.clear();
+    }
+
+    use bevy::input::mouse::MouseScrollUnit;
+    for ev in scroll_evr.iter() {
+        match ev.unit {
+            MouseScrollUnit::Line => {
+                if board.shift_down {
+                    board.scroll_x += ev.y as i32;
+                } else {
+                    board.scroll_y += ev.y as i32;
+                }
+            }
+            MouseScrollUnit::Pixel => {
+            }
+        }
     }
 }
 
-fn spawn_cell_from_pos(
-    cell_type: CellType,
-    position: Vec2,
+fn calculate_position(
+    window_position: Vec2, 
+    cols: usize, 
+    rows: usize,
+    scroll_x: i32,
+    scroll_y: i32
+) -> u64 {
+    let pos = window_position;
+    let x_pos = pos.x.floor();
+    let y_pos = pos.y.floor();
+
+    
+    let cols = cols as f32;
+    let rows = rows as f32;
+
+    let x_pos = ((x_pos / CELL_SIZE % cols) as i32) + scroll_x;
+    let y_pos = ((y_pos / CELL_SIZE % rows) as i32) + scroll_y;
+    
+    encode_coord(x_pos,y_pos)
+}
+
+fn spawn_cell_at_pos(
+    pos: Vec2,
     mut board: ResMut<Board>
 ) {
-    let x_pos;
-    let y_pos;
-    if position.x.floor() % CELL_SIZE < CELL_SIZE / 2.0 {
-        x_pos = position.x.floor() - (position.x.floor() % CELL_SIZE) - 128.0;
+    let cols = board.num_columns;
+    let rows = board.num_rows;
+
+    let scroll_x = board.scroll_x;
+    let scroll_y = board.scroll_y;
+
+    board.cells.insert(calculate_position(
+            pos, cols, rows, scroll_x, scroll_y));
+}
+
+fn kill_cell_at_pos(
+    pos: Vec2,
+    mut board: ResMut<Board>
+){
+    let cols = board.num_columns;
+    let rows = board.num_rows;
+
+    let scroll_x = board.scroll_x;
+    let scroll_y = board.scroll_y;
+
+    board.cells.remove(&calculate_position(
+            pos, cols, rows, scroll_x, scroll_y));
+}
+
+fn find_living(cells: &mut BTreeSet<u64>) -> BTreeSet<u64> {
+    let new_cells: RefHashSet = Arc::new(Mutex::new(BTreeSet::new()));
+    let possible_newborns: RefHashSet = Arc::new(Mutex::new(BTreeSet::new()));
+
+    cells.par_iter().for_each(|coord|{
+        let (x, y) = decode_coord(*coord);
+        let count = count_neighbors_and_newborns(
+            &x, &y, cells, possible_newborns.clone());
+        if count >= 2 && count <= 3 {
+            lock_as_mut!(|new_cells|{
+                let coord = encode_coord(x, y);
+                new_cells.insert(coord);
+            });
+        }
+    });
+    lock_readonly!(|possible_newborns|{
+        possible_newborns.par_iter().for_each(|coord|{
+            let (x, y) = decode_coord(*coord);
+            let count = count_neighbors(&x, &y, cells);
+            if count == 3 {
+                lock_as_mut!(|new_cells|{
+                    let coord = encode_coord(x, y);
+                    new_cells.insert(coord);
+                });
+            }
+        });
+    });
+
+    // This is how you can exit a mutex without cloning...
+    // I don't really know how stable this is, but it 
+    // seems to work fine.
+    let final_cells: BTreeSet<u64>;
+    if let Ok(mut new_cells) = new_cells.lock() {
+        final_cells = std::mem::take(&mut *new_cells);
     } else {
-        x_pos = position.x.floor() + (CELL_SIZE - position.x.floor() % CELL_SIZE) - 128.0;
+        unreachable!("final_cells should always consume new_cells mutex lock");
+    };
+    final_cells
+}
+
+fn encode_coord(x: i32, y: i32) -> u64 {
+    let upper_u32: u64 = (x as u64) << 32;
+    let lower_u32: u64 = y as u64;
+    upper_u32 | lower_u32
+}
+fn decode_coord(coord: u64) -> (i32, i32) {
+    let x = (coord >> 32) as i32;
+    let y = coord as i32;
+    (x, y)
+}
+
+fn count_neighbors(
+    x: &i32, 
+    y: &i32,
+    cells: &BTreeSet<u64>,
+) -> usize {
+
+    let x = *x;
+    let y = *y;
+    let mut count = 0;
+    let init_coord = encode_coord(x, y);
+
+    if !cells.contains(&init_coord) {
+        for i in -1..=1 {
+            for j in -1..=1 {
+                let coord = encode_coord(x+i, y+j);
+                if cells.contains(&coord) && coord != init_coord {
+                    count += 1;
+                }
+            }
+        }
     }
 
-    if position.y.floor() % CELL_SIZE < CELL_SIZE / 2.0 {
-        y_pos = position.y.floor() - position.y.floor() % CELL_SIZE - 128.0;
-    } else {
-        y_pos = position.y.floor() + (CELL_SIZE - position.y.floor() % CELL_SIZE) - 128.0;
-    }
-    let num_columns = board.num_columns as f32;
-    let num_rows = board.num_rows as f32;
 
-    board.grid[(x_pos / CELL_SIZE % num_columns) as usize][(y_pos / CELL_SIZE % num_rows) as usize].cell_type = cell_type;
+    count 
+}
+
+fn count_neighbors_and_newborns(
+    x: &i32, 
+    y: &i32,
+    cells: &BTreeSet<u64>,
+    possible_newborns: RefHashSet
+) -> usize {
+
+    let x = *x;
+    let y = *y;
+    let mut count: isize = -1;
+
+    for i in -1..=1 {
+        for j in -1..=1 {
+            let coord = encode_coord(x+i, y+j);
+            if cells.contains(&coord) {
+                count += 1;
+            } else {
+                lock_as_mut!(|possible_newborns|{
+                    possible_newborns.insert(coord);
+                });
+            }
+        }
+    }
+
+    assert!(count >= 0, "Count should always be greater than zero because it counts the cell that
+            called this function");
+
+    count as usize
 }
 
 fn setup (
