@@ -1,5 +1,5 @@
 # Bevy Game of Life 
-![demo.gif][demo.gif]
+![demo.gif](https://github.com/JustBobinAround/bevy_game_of_life/raw/master/demo.gif)
 This repository originates from an intriguing project named
 [falling_sand_experiment](https://github.com/dfebs/falling_sand_experiment).
 While my initial motivation for forking was to develop a logic gate simulator,
