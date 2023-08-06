@@ -3,7 +3,6 @@ use board::*;
 use cell_renderer::*;
 
 mod cell_renderer;
-mod cell; // This may need to move
 mod board;
 
 
