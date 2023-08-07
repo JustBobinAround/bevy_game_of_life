@@ -11,4 +11,5 @@ run-local:
 build-local:
 	cargo build --release
 	
-
+deploy: wasm-build
+	git push -u origin main
