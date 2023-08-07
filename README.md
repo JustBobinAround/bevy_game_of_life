@@ -7,6 +7,18 @@ the realization of potential intricacies arising from overlapping wires
 prompted a shift in focus. Consequently, I pivoted towards creating Conway's
 Game of Life as a more feasible endeavor. 
 
+
+## Online [DEMO!](https://justbobinaround.github.io/bevy_game_of_life/)
+
+## Controls
+- Scroll: Vertical camera movement.
+- Left Shift + Scroll: Horizontal camera Movement.
+- Escape: Erase all living cells.
+- Left Click: Spawn a cell.
+- Right Click: Remove a cell.
+- Space: Toggle Pause / Play.
+
+
 ## Dependencies
 **This was copied from bevy's [linux_dependencies](https://github.com/bevyengine/bevy/blob/main/docs/linux_dependencies.md)
 
@@ -63,14 +75,6 @@ nix-shell
 ```bash
 cargo run --release
 ```
-
-## Controls
-- Scroll: Vertical camera movement.
-- Left Shift + Scroll: Horizontal camera Movement.
-- Escape: Erase all living cells.
-- Left Click: Spawn a cell.
-- Right Click: Remove a cell.
-- Space: Toggle Pause / Play.
 
 ## Points of Interest
 
