@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+        }
+    </style>
+  </head>
+  <script type="module">
+    import init from './out/bevy_game_of_life.js'
+    init()
+  </script>
+  <script>
+    function modify_initial_canvas () {
+        const canvas = document.querySelector('canvas');
+
+        if (canvas) {
+            canvas.oncontextmenu = function(e) {
+                e.preventDefault(); 
+                e.stopPropagation();
+            }
+        } 
+         else {
+            setTimeout(modify_initial_canvas, 300); // try again in 300 milliseconds
+        }
+    }
+    modify_initial_canvas();
+</script>
+</html>

@@ -24,8 +24,8 @@ macro_rules! lock_readonly {
 }
 
 
-pub const BOARD_WIDTH: f32 =  1024.0;
-pub const BOARD_HEIGHT: f32 = 512.0;
+pub const BOARD_WIDTH: f32 =  4096.0 / 2.0;
+pub const BOARD_HEIGHT: f32 = 2048.0 / 2.0;
 pub const CELL_SIZE: f32 = 16.0;
 
 #[derive(Resource)]
@@ -128,8 +128,8 @@ fn handle_click (
     let window = window.single();
 
     // This is for large displays
-    let x_offset = (window.width() - BOARD_WIDTH)/2.0;
-    let y_offset = (window.height() - BOARD_HEIGHT)/2.0;
+    let x_offset = (window.width() - board.board_size.x)/2.0;
+    let y_offset = (window.height() - board.board_size.y)/2.0;
 
     if let Some(mut pos) = window.cursor_position() {
         pos.x -= x_offset;
@@ -171,6 +171,19 @@ fn handle_keys (
                 }
             }
             MouseScrollUnit::Pixel => {
+                if board.shift_down {
+                    if ev.y > 0.0 {
+                        board.scroll_x += 1;
+                    } else {
+                        board.scroll_x -= 1;
+                    }
+                } else {
+                    if ev.y > 0.0 {
+                        board.scroll_y += 1;
+                    } else {
+                        board.scroll_y -= 1;
+                    }
+                }
             }
         }
     }
@@ -334,7 +347,7 @@ fn count_neighbors_and_newborns(
 
 fn setup (
     mut commands: Commands,
-    board: Res<Board>
+    board: Res<Board>,
 ) {
     commands.spawn(board.get_board_rect());
 }

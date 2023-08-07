@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::window::PresentMode;
 use board::*;
 use cell_renderer::*;
 
@@ -13,8 +14,15 @@ mod board;
 fn main() {
     App::new()
     .add_startup_system(setup)
+    .add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            present_mode: PresentMode::AutoNoVsync, // Reduces input lag.
+            fit_canvas_to_parent: true,
+            ..default()
+        }),
+        ..default()
+    }))
     .add_plugin(BoardPlugin)
-    .add_plugins(DefaultPlugins)
     .add_plugin(CellRendererPlugin)
     .run();
 }

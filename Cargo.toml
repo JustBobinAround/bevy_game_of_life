@@ -11,3 +11,7 @@ rayon = "1.7.0"
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"
+
