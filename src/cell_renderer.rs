@@ -20,7 +20,7 @@ impl Plugin for CellRendererPlugin {
 }
 
 fn initialize_cells(
-    mut commands: Commands
+    mut commands: Commands,
 ) {
     let num_columns = (BOARD_WIDTH / CELL_SIZE) as usize;
     let num_rows = (BOARD_HEIGHT / CELL_SIZE) as usize;
