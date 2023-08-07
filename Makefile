@@ -12,4 +12,4 @@ build-local:
 	cargo build --release
 	
 deploy: wasm-build
-	git push -u origin main
+	git push -u origin master
