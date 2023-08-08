@@ -42,5 +42,5 @@ Right Click: Remove a cell
 Space: Toggle Pause / Play
 Escape: Clear all living cells
 Scroll: Move Vertical
-LShift + Scroll: Move Horizontal");
+LCtrl + Scroll: Move Horizontal");
 }

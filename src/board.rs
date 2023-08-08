@@ -57,7 +57,7 @@ pub struct Board {
     pause: bool,
     scroll_x: i32,
     scroll_y: i32,
-    shift_down: bool,
+    ctrl_down: bool,
 }
 
 impl Board {
@@ -74,7 +74,7 @@ impl Board {
             pause: true,
             scroll_x: 10000,
             scroll_y: 10000,
-            shift_down: false,
+            ctrl_down: false,
         }
     }
 
@@ -147,11 +147,11 @@ fn handle_keys (
     keys: Res<Input<KeyCode>>,
     mut scroll_evr: EventReader<MouseWheel>,
 ) {
-    if keys.just_released(KeyCode::LShift){
-        board.shift_down = false;
+    if keys.just_released(KeyCode::LControl){
+        board.ctrl_down = false;
     }
-    if keys.just_pressed(KeyCode::LShift) {
-        board.shift_down = true;
+    if keys.just_pressed(KeyCode::LControl) {
+        board.ctrl_down = true;
     }
     if keys.just_pressed(KeyCode::Space) {
         board.pause = !board.pause;
@@ -164,14 +164,14 @@ fn handle_keys (
     for ev in scroll_evr.iter() {
         match ev.unit {
             MouseScrollUnit::Line => {
-                if board.shift_down {
+                if board.ctrl_down {
                     board.scroll_x += ev.y as i32;
                 } else {
                     board.scroll_y += ev.y as i32;
                 }
             }
             MouseScrollUnit::Pixel => {
-                if board.shift_down {
+                if board.ctrl_down {
                     if ev.y > 0.0 {
                         board.scroll_x += 1;
                     } else {
